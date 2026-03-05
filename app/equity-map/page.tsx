@@ -1,26 +1,13 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { apiFetch } from '@/lib/api';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter } from 'recharts';
 import { Users, Droplet, TrendingUp, AlertTriangle } from 'lucide-react';
-
-const equityData = [
-  { region: 'Region A', population: 850000, allocation: 450, perCapita: 529, inequality: 'High', accessLevel: 'Adequate' },
-  { region: 'Region B', population: 620000, allocation: 280, perCapita: 452, inequality: 'Medium', accessLevel: 'Adequate' },
-  { region: 'Region C', population: 1200000, allocation: 290, perCapita: 242, inequality: 'Very High', accessLevel: 'Scarce' },
-  { region: 'Region D', population: 450000, allocation: 200, perCapita: 444, inequality: 'Low', accessLevel: 'Adequate' },
-  { region: 'Region E', population: 780000, allocation: 180, perCapita: 231, inequality: 'High', accessLevel: 'Scarce' },
-];
-
-const scarcityData = [
-  { region: 'Region A', population: 850, allocation: 450, access: 85 },
-  { region: 'Region B', population: 620, allocation: 280, access: 80 },
-  { region: 'Region C', population: 1200, allocation: 290, access: 42 },
-  { region: 'Region D', population: 450, allocation: 200, access: 85 },
-  { region: 'Region E', population: 780, allocation: 180, access: 35 },
-];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -39,7 +26,6 @@ const itemVariants = {
     opacity: 1,
     y: 0,
     transition: {
-      type: 'spring',
       stiffness: 100,
       damping: 15,
     },
@@ -69,6 +55,45 @@ const getAccessBadge = (level: string) => {
 };
 
 export default function EquityMap() {
+  const { user } = useAuth();
+  const [regions, setRegions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRegions = async () => {
+      try {
+        const data = await apiFetch('/regions');
+        setRegions(data);
+      } catch (error) {
+        console.error('Error fetching regions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRegions();
+  }, []);
+
+  // Transform data for charts
+  const equityData = regions.map(region => ({
+    region: region.name,
+    population: region.population,
+    allocation: region.allocation,
+    perCapita: region.perCapita,
+    inequality: region.inequality,
+    accessLevel: region.accessLevel
+  }));
+
+  const scarcityData = regions.map(region => ({
+    region: region.name,
+    population: region.population / 1000, // Convert to thousands for chart
+    allocation: region.allocation,
+    access: Math.round((region.allocation / region.population) * 100000) // Rough access percentage
+  }));
+
+  if (loading) {
+    return <div className="p-8">Loading...</div>;
+  }
+
   return (
     <motion.div
       className="p-8 space-y-6"

@@ -1,28 +1,15 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { apiFetch } from '@/lib/api';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { AlertTriangle, TrendingUp, Cloud, Zap } from 'lucide-react';
 
-const floodRiskData = [
-  { hour: '00:00', waterLevel: 450, threshold: 600, rainfall: 0 },
-  { hour: '06:00', waterLevel: 480, threshold: 600, rainfall: 5 },
-  { hour: '12:00', waterLevel: 550, threshold: 600, rainfall: 25 },
-  { hour: '18:00', waterLevel: 580, threshold: 600, rainfall: 40 },
-  { hour: '24:00', waterLevel: 590, threshold: 600, rainfall: 35 },
-  { hour: '30:00', waterLevel: 595, threshold: 600, rainfall: 20 },
-  { hour: '36:00', waterLevel: 580, threshold: 600, rainfall: 10 },
-  { hour: '42:00', waterLevel: 550, threshold: 600, rainfall: 0 },
-];
-
-const riskAssessmentData = [
-  { region: 'Basin A', riskLevel: 85, predictedPeak: 'Tomorrow 18:00', capacity: '92%' },
-  { region: 'Basin B', riskLevel: 42, predictedPeak: 'Day 3 12:00', capacity: '65%' },
-  { region: 'Basin C', riskLevel: 68, predictedPeak: 'Tomorrow 20:00', capacity: '80%' },
-  { region: 'Basin D', riskLevel: 25, predictedPeak: 'Day 4 14:00', capacity: '48%' },
-];
+// placeholder arrays will be computed dynamically below
 
 const riverSystemData = [
   { location: 'River Outlet', level: 520, capacity: 600, status: 'Critical' },
@@ -48,7 +35,6 @@ const itemVariants = {
     opacity: 1,
     y: 0,
     transition: {
-      type: 'spring',
       stiffness: 100,
       damping: 15,
     },
@@ -75,6 +61,46 @@ const getStatusColor = (status: string) => {
 };
 
 export default function FloodRisk() {
+  const { user } = useAuth();
+  const [waterLevels, setWaterLevels] = useState<any[]>([]);
+  const [regions, setRegions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const levels = await apiFetch('/water');
+        const regionsData = await apiFetch('/regions');
+        setWaterLevels(levels);
+        setRegions(regionsData);
+      } catch (err) {
+        console.error('Error fetching flood data', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return <div className="p-8">Loading...</div>;
+  }
+
+  // compute chart data
+  const floodRiskData = waterLevels.slice(0, 8).map((w, idx) => ({
+    hour: `${idx * 6}:00`,
+    waterLevel: w.usage,
+    threshold: 600,
+    rainfall: Math.round(Math.random() * 50),
+  }));
+
+  const riskAssessmentData = regions.map(r => ({
+    region: r.name,
+    riskLevel: Math.round(Math.random() * 100),
+    predictedPeak: 'Tomorrow 18:00',
+    capacity: `${Math.round(Math.random() * 50 + 50)}%`,
+  }));
+
   return (
     <motion.div
       className="p-8 space-y-6"

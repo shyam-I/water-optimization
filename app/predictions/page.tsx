@@ -1,5 +1,8 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { apiFetch } from '@/lib/api';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,18 +20,8 @@ import {
 } from 'recharts';
 import { TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 
-const forecastData = [
-  { date: 'Mon', actual: 1200, predicted: 1150, upper: 1350, lower: 950 },
-  { date: 'Tue', actual: 1350, predicted: 1300, upper: 1500, lower: 1100 },
-  { date: 'Wed', actual: 1450, predicted: 1420, upper: 1620, lower: 1220 },
-  { date: 'Thu', actual: 1320, predicted: 1380, upper: 1580, lower: 1180 },
-  { date: 'Fri', actual: 1500, predicted: 1480, upper: 1680, lower: 1280 },
-  { date: 'Sat', actual: 1100, predicted: 1120, upper: 1320, lower: 920 },
-  { date: 'Sun', actual: 980, predicted: 1050, upper: 1250, lower: 850 },
-  { date: 'Mon+1', predicted: 1180, upper: 1380, lower: 980 },
-  { date: 'Tue+1', predicted: 1250, upper: 1450, lower: 1050 },
-  { date: 'Wed+1', predicted: 1380, upper: 1580, lower: 1180 },
-];
+// transformed predictions from backend
+
 
 const anomalyData = [
   { timestamp: '2024-01-15 14:30', region: 'Region A', usage: 2800, expected: 1200, severity: 'high' },
@@ -53,14 +46,36 @@ const itemVariants = {
     opacity: 1,
     y: 0,
     transition: {
-      type: 'spring',
+      type: 'spring' as const,
       stiffness: 100,
       damping: 15,
     },
   },
-};
+} as const;
 
 export default function Predictions() {
+  const { user } = useAuth();
+  const [predictions, setPredictions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPredictions = async () => {
+      try {
+        const data = await apiFetch('/predictions');
+        setPredictions(data);
+      } catch (err) {
+        console.error('Error fetching predictions', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPredictions();
+  }, []);
+
+  if (loading) {
+    return <div className="p-8">Loading...</div>;
+  }
+
   return (
     <motion.div
       className="p-8 space-y-6"
@@ -140,7 +155,13 @@ export default function Predictions() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={350}>
-              <AreaChart data={forecastData}>
+              <AreaChart data={predictions.map(p => ({
+                date: new Date(p.date).toLocaleDateString('en-US', { weekday: 'short' }),
+                predicted: p.predictedUsage,
+                actual: p.predictedUsage, // placeholder
+                upper: p.predictedUsage * 1.1,
+                lower: p.predictedUsage * 0.9,
+              }))}>
                 <defs>
                   <linearGradient id="colorUpper" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.3} />

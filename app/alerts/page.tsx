@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { apiFetch } from '@/lib/api';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,53 +10,8 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const alertsData = [
-  {
-    id: 1,
-    type: 'anomaly',
-    severity: 'high',
-    title: 'Water Usage Spike Detected',
-    description: 'Region A showing 150% higher usage than expected',
-    time: '15 minutes ago',
-    status: 'active',
-  },
-  {
-    id: 2,
-    type: 'flood',
-    severity: 'high',
-    title: 'Flood Risk Warning',
-    description: 'Heavy rainfall predicted for next 48 hours with high flood probability',
-    time: '2 hours ago',
-    status: 'active',
-  },
-  {
-    id: 3,
-    type: 'shortage',
-    severity: 'medium',
-    title: 'Water Shortage Alert',
-    description: 'Water levels in Reservoir B dropping below critical threshold',
-    time: '4 hours ago',
-    status: 'active',
-  },
-  {
-    id: 4,
-    type: 'maintenance',
-    severity: 'low',
-    title: 'Maintenance Alert',
-    description: 'Irrigation system in Region D requires scheduled maintenance',
-    time: '1 day ago',
-    status: 'resolved',
-  },
-  {
-    id: 5,
-    type: 'anomaly',
-    severity: 'medium',
-    title: 'Minor Usage Fluctuation',
-    description: 'Region E showing 25% variation from baseline',
-    time: '2 days ago',
-    status: 'resolved',
-  },
-];
+// alerts loaded from backend
+
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -105,13 +62,54 @@ const getSeverityIcon = (severity: string) => {
 };
 
 export default function Alerts() {
+  const { user } = useAuth();
+  const [alertsData, setAlertsData] = useState<any[]>([]);
   const [dismissedAlerts, setDismissedAlerts] = useState<number[]>([]);
+  const [preferences, setPreferences] = useState({
+    emailNotifications: true,
+    pushNotifications: true,
+    smsAlerts: false,
+  });
+  const [saving, setSaving] = useState(false);
 
-  const handleDismiss = (id: number) => {
-    setDismissedAlerts([...dismissedAlerts, id]);
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const data = await apiFetch('/alerts');
+        setAlertsData(data);
+      } catch (err) {
+        console.error('Error loading alerts', err);
+      }
+    };
+    fetchAlerts();
+  }, []);
+
+  const handleSavePreferences = async () => {
+    setSaving(true);
+    try {
+      // Here you could save preferences to backend
+      console.log('Saving preferences:', preferences);
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      alert('Preferences saved successfully!');
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      alert('Failed to save preferences');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const activeAlerts = alertsData.filter(alert => alert.status === 'active' && !dismissedAlerts.includes(alert.id));
+  const handleDismiss = async (id: string) => {
+    try {
+      await apiFetch(`/alerts/${id}`, { method: 'PUT' });
+      setDismissedAlerts([...dismissedAlerts, id]);
+    } catch (err) {
+      console.error('Error dismissing alert', err);
+    }
+  };
+
+  const activeAlerts = alertsData.filter(alert => alert.status === 'active' && !dismissedAlerts.includes(alert._id || alert.id));
   const resolvedAlerts = alertsData.filter(alert => alert.status === 'resolved');
 
   return (
@@ -325,8 +323,12 @@ export default function Alerts() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                Save Preferences
+              <Button
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                onClick={handleSavePreferences}
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Save Preferences'}
               </Button>
             </motion.div>
           </CardContent>

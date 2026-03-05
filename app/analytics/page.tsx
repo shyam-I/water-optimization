@@ -1,5 +1,8 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { apiFetch } from '@/lib/api';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -18,30 +21,6 @@ import {
   Cell,
 } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-const monthlyUsageData = [
-  { month: 'Jan', consumption: 1200, target: 1000 },
-  { month: 'Feb', consumption: 1100, target: 1000 },
-  { month: 'Mar', consumption: 1400, target: 1000 },
-  { month: 'Apr', consumption: 1300, target: 1000 },
-  { month: 'May', consumption: 1600, target: 1000 },
-  { month: 'Jun', consumption: 1800, target: 1000 },
-];
-
-const regionWiseData = [
-  { region: 'Region A', usage: 450 },
-  { region: 'Region B', usage: 380 },
-  { region: 'Region C', usage: 290 },
-  { region: 'Region D', usage: 200 },
-  { region: 'Region E', usage: 180 },
-];
-
-const usageBySourceData = [
-  { name: 'Agriculture', value: 45 },
-  { name: 'Industrial', value: 25 },
-  { name: 'Municipal', value: 20 },
-  { name: 'Domestic', value: 10 },
-];
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))'];
 
@@ -62,7 +41,6 @@ const itemVariants = {
     opacity: 1,
     y: 0,
     transition: {
-      type: 'spring',
       stiffness: 100,
       damping: 15,
     },
@@ -70,6 +48,50 @@ const itemVariants = {
 };
 
 export default function Analytics() {
+  const { user } = useAuth();
+  const [regions, setRegions] = useState<any[]>([]);
+  const [waterData, setWaterData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const regionsData = await apiFetch('/regions');
+        const waterData = await apiFetch('/water');
+        setRegions(regionsData);
+        setWaterData(waterData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Transform data for charts
+  const regionWiseData = regions.map(region => ({
+    region: region.name,
+    usage: region.allocation
+  }));
+
+  const monthlyUsageData = waterData.map((d, idx) => ({
+    month: `M${idx+1}`,
+    consumption: d.usage,
+    target: 1000,
+  }));
+
+  const usageBySourceData = [
+    { name: 'Agriculture', value: 45 },
+    { name: 'Industrial', value: 25 },
+    { name: 'Municipal', value: 20 },
+    { name: 'Domestic', value: 10 },
+  ];
+
+  if (loading) {
+    return <div className="p-8">Loading...</div>;
+  }
+
   return (
     <motion.div
       className="p-8 space-y-6"

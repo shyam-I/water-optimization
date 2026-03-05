@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from "react";
+import { useAuth } from '@/hooks/useAuth';
+import { apiFetch } from '@/lib/api';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
@@ -42,16 +44,18 @@ const itemVariants = {
 } as const;
 
 export default function Dashboard() {
+  const { user } = useAuth();
 
   /* MongoDB data state */
   const [waterUsageData, setWaterUsageData] = useState<any[]>([]);
 
+  const [predictions, setPredictions] = useState<any[]>([]);
+  const [alertsCount, setAlertsCount] = useState<number>(0);
+
   /* Fetch backend API */
   useEffect(() => {
-    fetch("http://localhost:5000/api/water")
-      .then(res => res.json())
+    apiFetch('/water')
       .then(data => {
-
         const formatted = data.map((item: any) => ({
           time: new Date(item.timestamp).toLocaleTimeString([], {
             hour: '2-digit',
@@ -59,11 +63,17 @@ export default function Dashboard() {
           }),
           usage: item.usage
         }));
-
         setWaterUsageData(formatted);
-
       })
       .catch(err => console.log("API Error:", err));
+
+    apiFetch('/predictions')
+      .then(data => setPredictions(data))
+      .catch(console.error);
+
+    apiFetch('/alerts')
+      .then(data => setAlertsCount(data.filter((a:any)=>a.status==='active').length))
+      .catch(console.error);
   }, []);
 
   return (
@@ -92,7 +102,7 @@ export default function Dashboard() {
               <Droplet className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">1,248 ML</div>
+              <div className="text-2xl font-bold">{waterUsageData.reduce((acc,cur)=>acc+cur.usage,0)} ML</div>
               <p className="text-xs text-muted-foreground">↑ 12% from yesterday</p>
             </CardContent>
           </Card>
@@ -105,7 +115,7 @@ export default function Dashboard() {
               <TrendingUp className="h-4 w-4 text-accent" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">1,385 ML</div>
+              <div className="text-2xl font-bold">{Math.round(predictions.length>0?predictions[0].predictedUsage:0)} ML</div>
               <p className="text-xs text-muted-foreground">Next 24 hours</p>
             </CardContent>
           </Card>
@@ -118,7 +128,7 @@ export default function Dashboard() {
               <AlertCircle className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">3</div>
+              <div className="text-2xl font-bold">{alertsCount}</div>
               <p className="text-xs text-muted-foreground">Requires attention</p>
             </CardContent>
           </Card>
@@ -218,7 +228,7 @@ export default function Dashboard() {
 
             </CardContent>
           </Card>
-        </motion.div>
+        </motion.div> 
 
       </div>
 

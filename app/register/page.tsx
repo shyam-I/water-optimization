@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,12 @@ import { Droplet, ArrowRight } from 'lucide-react';
 
 export default function Register() {
   const router = useRouter();
+  const { user } = useAuth(false);
+
+  useEffect(() => {
+    if (user) router.push('/');
+  }, [user, router]);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -39,9 +46,33 @@ export default function Register() {
     }
 
     setIsLoading(true);
-    // Simulate registration delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    router.push('/');
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:5000/api'}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        router.push('/');
+      } else {
+        setError(data.message || 'Registration failed');
+      }
+    } catch (error) {
+      setError('Network error. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const containerVariants = {
@@ -60,9 +91,9 @@ export default function Register() {
     visible: {
       opacity: 1,
       y: 0,
-      transition: { type: 'spring', stiffness: 100, damping: 15 },
+      transition: { type: 'spring' as const, stiffness: 100, damping: 15 },
     },
-  };
+  } as const;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-card/30 flex items-center justify-center p-4 overflow-hidden">

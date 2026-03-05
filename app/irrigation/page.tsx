@@ -1,35 +1,16 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { apiFetch } from '@/lib/api';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { Droplet, Leaf, Cloud, Wind } from 'lucide-react';
+import { Droplet, Leaf, Cloud, Wind, CheckCircle } from 'lucide-react';
 
-const irrigationRecommendations = [
-  { region: 'Region A', soilMoisture: 35, recommended: 'Irrigate Now', duration: '4 hours', saving: '12%' },
-  { region: 'Region B', soilMoisture: 62, recommended: 'Wait 2 days', duration: 'N/A', saving: '18%' },
-  { region: 'Region C', soilMoisture: 28, recommended: 'Urgent', duration: '6 hours', saving: '8%' },
-  { region: 'Region D', soilMoisture: 45, recommended: 'Wait 1 day', duration: 'N/A', saving: '22%' },
-  { region: 'Region E', soilMoisture: 52, recommended: 'Wait 3 days', duration: 'N/A', saving: '15%' },
-];
 
-const soilMoistureData = [
-  { region: 'Region A', current: 35, optimal: 50, capacity: 100 },
-  { region: 'Region B', current: 62, optimal: 50, capacity: 100 },
-  { region: 'Region C', current: 28, optimal: 50, capacity: 100 },
-  { region: 'Region D', current: 45, optimal: 50, capacity: 100 },
-  { region: 'Region E', current: 52, optimal: 50, capacity: 100 },
-];
-
-const weatherForecastData = [
-  { day: 'Today', rainfall: 0, temp: 28, humidity: 65, windSpeed: 12 },
-  { day: 'Tomorrow', rainfall: 5, temp: 26, humidity: 72, windSpeed: 10 },
-  { day: 'Day 3', rainfall: 15, temp: 24, humidity: 80, windSpeed: 8 },
-  { day: 'Day 4', rainfall: 8, temp: 25, humidity: 75, windSpeed: 11 },
-  { day: 'Day 5', rainfall: 0, temp: 27, humidity: 68, windSpeed: 14 },
-];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -48,7 +29,6 @@ const itemVariants = {
     opacity: 1,
     y: 0,
     transition: {
-      type: 'spring',
       stiffness: 100,
       damping: 15,
     },
@@ -56,6 +36,64 @@ const itemVariants = {
 };
 
 export default function Irrigation() {
+  const { user } = useAuth();
+  const [regions, setRegions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [scheduledRegions, setScheduledRegions] = useState<Set<string>>(new Set());
+
+  // computed data
+  const irrigationRecommendations = regions.map((r) => {
+    const moisture = Math.round(Math.random() * 50 + 25);
+    const rec = moisture < 40 ? 'Irrigate Now' : moisture < 55 ? 'Wait 2 days' : 'Wait 3 days';
+    return {
+      region: r.name,
+      soilMoisture: moisture,
+      recommended: rec,
+      duration: rec === 'Irrigate Now' ? '4 hours' : 'N/A',
+      saving: `${Math.floor(Math.random() * 20) + 5}%`,
+      isScheduled: scheduledRegions.has(r.name)
+    };
+  });
+
+  const soilMoistureData = regions.map((r, idx) => ({
+    region: r.name,
+    current: irrigationRecommendations[idx]?.soilMoisture || 0,
+    optimal: 50,
+    capacity: 100
+  }));
+
+  const weatherForecastData = [
+    { day: 'Today', rainfall: 0, temp: 28, humidity: 65, windSpeed: 12 },
+    { day: 'Tomorrow', rainfall: 5, temp: 26, humidity: 72, windSpeed: 10 },
+    { day: 'Day 3', rainfall: 15, temp: 24, humidity: 80, windSpeed: 8 },
+    { day: 'Day 4', rainfall: 8, temp: 25, humidity: 75, windSpeed: 11 },
+    { day: 'Day 5', rainfall: 0, temp: 27, humidity: 68, windSpeed: 14 },
+  ];
+
+  useEffect(() => {
+    const fetchRegions = async () => {
+      try {
+        const data = await apiFetch('/regions');
+        setRegions(data);
+      } catch (err) {
+        console.error('Error fetching regions', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRegions();
+  }, []);
+
+  const handleSchedule = (regionName: string) => {
+    setScheduledRegions(prev => new Set([...prev, regionName]));
+    // Here you could also make an API call to save the schedule to the backend
+    console.log(`Scheduled irrigation for ${regionName}`);
+  };
+
+  if (loading) {
+    return <div className="p-8">Loading...</div>;
+  }
+
   return (
     <motion.div
       className="p-8 space-y-6"
@@ -182,8 +220,20 @@ export default function Irrigation() {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                     >
-                      <Button size="sm" className="w-full bg-primary hover:bg-primary/90">
-                        Schedule
+                      <Button
+                        size="sm"
+                        className={`w-full ${rec.isScheduled ? 'bg-green-500 hover:bg-green-600' : 'bg-primary hover:bg-primary/90'}`}
+                        onClick={() => handleSchedule(rec.region)}
+                        disabled={rec.isScheduled}
+                      >
+                        {rec.isScheduled ? (
+                          <>
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Scheduled
+                          </>
+                        ) : (
+                          'Schedule'
+                        )}
                       </Button>
                     </motion.div>
                   </div>
